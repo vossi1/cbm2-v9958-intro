@@ -1,0 +1,11 @@
+intro.b
+
+cbm2 autostarting intro for the v9958 color-graphics-card
+
+description:
+"C B M II"-sprite intro with 16 moving 16x16 sprites in 16-colors with custom palette.
+fits in the first half of the 2732 eprom on the card.
+The intro starts before kernal initialization.
+
+version 0.1
+- first prg-test-version for bank 1 with basic loader
