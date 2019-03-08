@@ -1,4 +1,4 @@
-; *************************************************************************************************	
+; *************************************************************************************************		
 ;                             CBM2-V9958-Card Intro / Vossi 03/2019
 ; *************************************************************************************************
 ; basic copys init-code to bank 15 and starts at $0400
@@ -257,6 +257,16 @@ start:							; *** main code starts here ***
 	cpx # 16
 	bne -
 
+	lda # 0			; test for missing red colors in II
+	ldx # 12
+	sta sprite_y,x
+	inx
+	sta sprite_y,x
+	lda # 16
+	sta sprite_y,x
+	inx
+	sta sprite_y,x
+
 	jsr VdpSpriteGroup
 
 	jmp end								; end program
@@ -344,7 +354,7 @@ VdpOff:							; *** disable screen ***
 VdpStatus:						; *** read status register in A - return status in A
 	lda # 1
 	+VdpSetReg 15						; reg 15 = 1 initiates read status-reg 1
-	+VDPWAIT 6						; wait for DVP
+	+VDPWAIT 6							; wait for DVP
 	lda(VDPStatus),y					; read status
 	rts
 
@@ -683,7 +693,7 @@ SpriteColorData:
 !byte 15,8,8,9,9,9,10,10,10,10,10,10,11,11,11,11
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
-!byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
+!byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80	; sprites 16-31 invisible (x=-32)
 !byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
 !byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
 !byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
