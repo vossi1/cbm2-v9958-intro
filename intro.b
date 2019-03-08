@@ -569,7 +569,7 @@ message_vdpunknown !scr "VDP ?", C_CR, C_NULL
 vdp_message !scr  "v9958: 32 sprites in 16 colors", V_NULL
 
 VdpInitData:	; graphics3-mode
-!byte $04,VDPREG1,$0e,$ff,$03,$3c,$03,$10,$08,VDPREG9,$00,$00,$10,$0f,$00
+!byte $04,VDPREG1,$0e,$ff,$03,$3c,$03,$10,$08,VDPREG9,$00,$00,$10,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
 	; reg  1: $02 mode control 2: bit#1 16x16 sprites, bit#3-4 = M2-M1, #6 =1: display enable)
 	; reg  2: $0e name (screen) table base address $3800 ( * $400 )
