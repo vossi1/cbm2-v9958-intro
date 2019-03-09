@@ -257,16 +257,6 @@ start:							; *** main code starts here ***
 	cpx # 16
 	bne -
 
-	lda # 0			; test for missing red colors in II
-	ldx # 12
-	sta sprite_y,x
-	inx
-	sta sprite_y,x
-	lda # 16
-	sta sprite_y,x
-	inx
-	sta sprite_y,x
-
 	jsr VdpSpriteGroup
 
 	jmp end								; end program
@@ -569,13 +559,13 @@ message_vdpunknown !scr "VDP ?", C_CR, C_NULL
 vdp_message !scr  "v9958: 32 sprites in 16 colors", V_NULL
 
 VdpInitData:	; graphics3-mode
-!byte $04,VDPREG1,$0e,$ff,$03,$3c,$03,$10,$08,VDPREG9,$00,$00,$10,$f0,$00
+!byte $04,VDPREG1,$0e,$ff,$03,$3f,$03,$10,$08,VDPREG9,$00,$00,$10,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
 	; reg  1: $02 mode control 2: bit#1 16x16 sprites, bit#3-4 = M2-M1, #6 =1: display enable)
 	; reg  2: $0e name (screen) table base address $3800 ( * $400 )
 	; reg  3: $ff pattern color table base address $2000 ( bit#7=A13 + bit#0-6 = 1)
 	; reg  4: $03 pattern generator table base address $0000 ( bit#2-5=A13-A16 + bit#0+1 = 1)
-	; reg  5: $3c sprite attribute table base address $1e00 (* $80)
+	; reg  5: $3f sprite attribute table base address $1e00 (* $80 - bit#0+1 = 1)
 	; reg  6: $03 sprite pattern (data) generator base address = $1800 (* $800)
 	; reg  7: $10 text/overscan-backdrop color 
 	; reg  8: $08 bit#3 = 1: 64k VRAM chips, bit#1 = 0 sprites enable, bit#5 0=transparent
@@ -677,18 +667,18 @@ SpriteData:
 SpriteDataEnd:
 
 SpriteColorData:
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
 !byte 15,8,8,9,9,9,10,10,10,10,10,10,11,11,11,11
 !byte 15,8,8,9,9,9,10,10,10,10,10,10,11,11,11,11
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14

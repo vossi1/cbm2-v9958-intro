@@ -7,5 +7,8 @@ description:
 fits in the first half of the 2732 eprom on the card.
 The intro starts before kernal initialization.
 
+version 0.2
+- bugfixing
+- static CBMII sprites in the right colors works now!
 version 0.1
 - first prg-test-version for bank 1 with basic loader
