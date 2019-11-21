@@ -10,7 +10,7 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-;ROM = 1		; assemble extension rom at $1000
+ROM = 1		; assemble extension rom at $1000
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
 !ifdef 	ROM{!to "intro.bin", plain
@@ -122,8 +122,12 @@ end:							; *** terminate program and boot ***
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
 start:							; *** main code starts here ***	
+	lda#$43
+	sta$d000
 	jsr VdpInit
 	jsr VdpOn
+	lda#$44
+	sta$d001
 
 	lda # 0
 	sta sprite_group_min
@@ -170,6 +174,9 @@ start:							; *** main code starts here ***
 	bne -
 
 	jsr VdpSpriteGroup
+	lda#$45
+	sta$d002
+
 stop:
 	jmp stop
 	jsr VdpOff	
