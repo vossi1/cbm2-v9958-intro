@@ -26,8 +26,9 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 	}else {VDPREG9		= $80|PAL*2}
 VDPTUNE					= 0			; tune vdp waits in 1us steps
 ; ***************************************** ADDRESSES *********************************************
+!addr warm				= $8003		; basic warm start
 !addr evect				= $03f8		; warmstart vector
-!addr bootcbm2			= $f9e0		; continue boot
+!addr bootcbm2			= $f9fb		; continue boot
 VDPAddress				= $d900		; Port#0 RamWrite, #1 Control, #2 Palette, #4 RamRead, #5 Status
 PatternTable			= $0000
 PatternColorTable		= $2000
@@ -102,7 +103,7 @@ WZP = $a0						; *** start zero page word variables
 *= $0400}
 !zone init						; *** rom start
 	jmp init							; jump to init
-	jmp init
+	jmp warm							; jump to basic warm start
 	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, 'BM', '1' = 4k-block 1
 init:							; *** initialize bank regs and start main code ***
 	sei									; disable interrupts
@@ -110,22 +111,15 @@ init:							; *** initialize bank regs and start main code ***
 	sta IndirectBank
 	jmp start							; jump to start
 end:							; *** terminate program and boot ***
-;	lda #$cc
-;	sta evect							; set warmstart vector to $bbcc = BASIC
-;	lda #$bb
-;	sta evect+1
-;	jmp bootcbm2						; boot with init
-	lda#$06
-	sta $96
-	lda#$00
-	sta $97
-	lda#$20
-	sta evect
-	jmp $f9b5
+	lda #$cc
+	sta evect							; set warmstart vector to $bbcc = BASIC
+	lda #$bb
+	sta evect+1
+	jmp bootcbm2						; boot with init
 !ifdef ROM{
-*= $1030
+*= $1020
 } else {
-*= $0430
+*= $0420
 }
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
