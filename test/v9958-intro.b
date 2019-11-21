@@ -1,5 +1,5 @@
 ; *************************************************************************************************
-;                  CBM2-V9958-Card Yamaha V9938-V9958 CBM2-Intro / Vossi 02/2019
+;                  CBM2-V9958-Card Yamaha V9938-V9958 CBM2-Intro / Vossi 11/2019
 ; *************************************************************************************************
 !cpu 6502	; 6502, 6510, 65c02, 65816
 !ct pet		; standard text/char conversion table -> Screencode (pet = PETSCII, raw)
@@ -11,6 +11,7 @@
 
 ; switches
 ROM = 1		; assemble extension rom at $1000
+ROMSIZE = $1000	; fill to reach exactly this size
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
 !ifdef 	ROM{!to "intro.bin", plain
@@ -102,7 +103,7 @@ WZP = $a0						; *** start zero page word variables
 !zone init						; *** rom start
 	jmp init							; jump to init
 	jmp init
-	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, '1' = 4k-block 1
+	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, 'BM', '1' = 4k-block 1
 init:							; *** initialize bank regs and start main code ***
 	sei									; disable interrupts
 	lda #$0f							; switch indirect bank to 15
@@ -478,3 +479,7 @@ SpriteColorData:
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
 SpriteColorDataEnd:
+
+!ifdef ROM{
+!align ROMSIZE, 0
+}
