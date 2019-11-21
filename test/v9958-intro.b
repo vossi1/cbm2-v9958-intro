@@ -110,15 +110,22 @@ init:							; *** initialize bank regs and start main code ***
 	sta IndirectBank
 	jmp start							; jump to start
 end:							; *** terminate program and boot ***
-	lda #$cc
-	sta evect							; set warmstart vector to $bbcc = BASIC
-	lda #$bb
-	sta evect+1
-	jmp bootcbm2						; boot with init
+;	lda #$cc
+;	sta evect							; set warmstart vector to $bbcc = BASIC
+;	lda #$bb
+;	sta evect+1
+;	jmp bootcbm2						; boot with init
+	lda#$06
+	sta $96
+	lda#$00
+	sta $97
+	lda#$20
+	sta evect
+	jmp $f9b5
 !ifdef ROM{
-*= $1020
+*= $1030
 } else {
-*= $0420
+*= $0430
 }
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
@@ -178,10 +185,12 @@ start:							; *** main code starts here ***
 	lda#$45
 	sta$d002
 
-stop:
-	jmp stop
+;stop:
+;	jmp stop
 	jsr VdpOff	
-;	jmp end								; end program
+	lda#$46
+	sta$d003
+	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
 !zone subroutines
 ; *********************************** ZONE VDP_SUBROUTINES ****************************************
