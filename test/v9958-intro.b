@@ -102,7 +102,7 @@ WZP = $a0						; *** start zero page word variables
 !zone init						; *** rom start
 	jmp init							; jump to init
 	jmp init
-	!byte "c",$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, '1' = 4k-block 1
+	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, '1' = 4k-block 1
 init:							; *** initialize bank regs and start main code ***
 	sei									; disable interrupts
 	lda #$0f							; switch indirect bank to 15
