@@ -28,7 +28,7 @@ VDPTUNE					= 0			; tune vdp waits in 1us steps
 ; ***************************************** ADDRESSES *********************************************
 !addr warm				= $8003		; basic warm start
 !addr evect				= $03f8		; warmstart vector
-!addr bootcbm2			= $f9fb		; continue boot
+!addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
 VDPAddress				= $d900		; Port#0 RamWrite, #1 Control, #2 Palette, #4 RamRead, #5 Status
 PatternTable			= $0000
 PatternColorTable		= $2000
@@ -69,9 +69,12 @@ SZP = $30
 BZP = $90						; *** start zero page byte-variables
 !addr vdpid				= BZP			; VDP ID
 !addr counter			= BZP+$01		; 8bit universal counter
+!addr eal				= $96		; RESERVED Kernal 
+!addr eah 				= $97		; RESERVED Kernal
 WZP = $a0						; *** start zero page word variables	
 !addr counter16			= WZP			; 16bit universal counter
 !addr pointer			= WZP+$02		; universal pointer
+!addr evect				= $03f8		; RESERVED Kernal 2bytes
 ; ******************************************* MACROS **********************************************
 !macro VDPWAIT .t{			; *** t x 1 us wait for VRAM write
 	!do while .t > 0{
@@ -111,11 +114,8 @@ init:							; *** initialize bank regs and start main code ***
 	sta IndirectBank
 	jmp start							; jump to start
 end:							; *** terminate program and boot ***
-	lda #$cc
-	sta evect							; set warmstart vector to $bbcc = BASIC
-	lda #$bb
-	sta evect+1
-	jmp bootcbm2						; boot with init
+	ldx #$31							; set x to 4. byte to compare for rom check
+	jmp bootcbm2						; continue to check for roms at $2000
 !ifdef ROM{
 *= $1020
 } else {
@@ -179,11 +179,19 @@ start:							; *** main code starts here ***
 	lda#$45
 	sta$d002
 
+	ldx #$00			; delay about 5s 
+	ldy #$00
+	lda #$20
+	sta $d003
+-	inx
+	bne -
+	iny
+	bne -
+	dec $d003
+	bne -
 ;stop:
 ;	jmp stop
 	jsr VdpOff	
-	lda#$46
-	sta$d003
 	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
 !zone subroutines
