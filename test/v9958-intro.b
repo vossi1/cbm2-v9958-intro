@@ -11,7 +11,7 @@
 
 ; switches
 ROM = 1		; assemble extension rom at $1000
-ROMSIZE = $1000	; fill to reach exactly this size
+ROMEND = $0800	; fill to reach exactly this size
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
 !ifdef 	ROM{!to "intro.bin", plain
@@ -492,5 +492,6 @@ SpriteColorData:
 SpriteColorDataEnd:
 
 !ifdef ROM{
-!align ROMSIZE, 0
+*= $1800
+!binary "cbm2-6x8.fon"
 }
