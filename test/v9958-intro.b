@@ -27,8 +27,9 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 VDPTUNE					= 0			; tune vdp waits in 1us steps
 ; ***************************************** ADDRESSES *********************************************
 !addr warm				= $8003		; basic warm start
-!addr evect				= $03f8		; warmstart vector
 !addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
+!addr evect				= $03f8	; RESERVED KERNAL BOOT warmstart vector 2 bytes
+; $96+$97 also RSERVED KERNAl BOOT rom check counter
 VDPAddress				= $d900		; Port#0 RamWrite, #1 Control, #2 Palette, #4 RamRead, #5 Status
 PatternTable			= $0000
 PatternColorTable		= $2000
@@ -74,7 +75,6 @@ BZP = $90						; *** start zero page byte-variables
 WZP = $a0						; *** start zero page word variables	
 !addr counter16			= WZP			; 16bit universal counter
 !addr pointer			= WZP+$02		; universal pointer
-!addr evect				= $03f8		; RESERVED Kernal 2bytes
 ; ******************************************* MACROS **********************************************
 !macro VDPWAIT .t{			; *** t x 1 us wait for VRAM write
 	!do while .t > 0{
