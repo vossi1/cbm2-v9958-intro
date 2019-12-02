@@ -83,15 +83,24 @@ WZP = $a0						; *** start zero page word variables
 }
 !macro VdpSetReg .r{			; *** set VDP Register
 	sta VDPControl					; first writes data in A to control port #1
+nop
+nop
 	lda # .r | $80						; writes register no. with bit#7 = 1 to Port #1
 	sta VDPControl
+nop
+nop
 }
 ; ********************* Y register must be $00 for all Vdp-Address subroutines ********************
 !macro VdpWriteAddress{			; *** set VDP write vram address-pointer to XXAA
 	sta VDPControl
+nop
+nop
+
 	txa
 	ora # $40							; bit#6 = 1 write
 	sta VDPControl
+nop
+nop
 } 
 !macro VdpReadAddress{					; *** set VDP read vram address-pointer to XXAA
 	sta VDPControl
@@ -204,6 +213,8 @@ VdpInit:						; *** initialize VDP ***
 	+VDPWAIT 4
 -	lda VdpInitData,x
 	sta VDPIndirect
+nop
+nop
 	inx
 	cpx # VdpInitDataEnd - VdpInitData
 	bne -
@@ -217,6 +228,8 @@ VdpInit:						; *** initialize VDP ***
 	ldy #$40							; set counter to $4000 - Y already $00	
 -	+VDPWAIT 1							; vdp pause between WR only 5us - works!
 	sta VDPRamWrite
+nop
+nop
 	inx
 	bne -
 	dey
@@ -225,6 +238,8 @@ VdpInit:						; *** initialize VDP ***
 	+VdpSetReg  16						; set VDP reg 16 = palette pointer to $00, A, X are already $00
 -	lda PaletteData,x					; load palette-color to write
 	sta VDPPalette
+nop
+nop
 	inx
 	cpx # PaletteDataEnd - PaletteData
 	bne -
