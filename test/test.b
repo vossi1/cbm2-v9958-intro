@@ -1,5 +1,5 @@
 ; *************************************************************************************************
-;                  CBM2-V9958-Card Yamaha V9938-V9958 CBM2-Intro / Vossi 11/2019
+;                  CBM2-V9958-Card Yamaha V9938-V9958 CBM2-Intro / Vossi 02/2019
 ; *************************************************************************************************
 !cpu 6502	; 6502, 6510, 65c02, 65816
 !ct pet		; standard text/char conversion table -> Screencode (pet = PETSCII, raw)
@@ -10,8 +10,7 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-ROM = 1		; assemble extension rom at $1000
-ROMEND = $0800	; fill to reach exactly this size
+;ROM = 1		; assemble extension rom at $1000
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
 !ifdef 	ROM{!to "intro.bin", plain
@@ -26,10 +25,8 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 	}else {VDPREG9		= $80|PAL*2}
 VDPTUNE					= 0			; tune vdp waits in 1us steps
 ; ***************************************** ADDRESSES *********************************************
-!addr warm				= $8003		; basic warm start
-!addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
-!addr evect				= $03f8	; RESERVED KERNAL BOOT warmstart vector 2 bytes
-; $96+$97 also RSERVED KERNAl BOOT rom check counter
+!addr evect				= $03f8		; warmstart vector
+!addr bootcbm2			= $f9e0		; continue boot
 VDPAddress				= $d900		; Port#0 RamWrite, #1 Control, #2 Palette, #4 RamRead, #5 Status
 PatternTable			= $0000
 PatternColorTable		= $2000
@@ -70,8 +67,6 @@ SZP = $30
 BZP = $90						; *** start zero page byte-variables
 !addr vdpid				= BZP			; VDP ID
 !addr counter			= BZP+$01		; 8bit universal counter
-!addr eal				= $96		; RESERVED Kernal 
-!addr eah 				= $97		; RESERVED Kernal
 WZP = $a0						; *** start zero page word variables	
 !addr counter16			= WZP			; 16bit universal counter
 !addr pointer			= WZP+$02		; universal pointer
@@ -83,23 +78,15 @@ WZP = $a0						; *** start zero page word variables
 }
 !macro VdpSetReg .r{			; *** set VDP Register
 	sta VDPControl					; first writes data in A to control port #1
-nop
-nop
 	lda # .r | $80						; writes register no. with bit#7 = 1 to Port #1
 	sta VDPControl
-nop
-nop
 }
 ; ********************* Y register must be $00 for all Vdp-Address subroutines ********************
 !macro VdpWriteAddress{			; *** set VDP write vram address-pointer to XXAA
 	sta VDPControl
-nop
-nop
 	txa
 	ora # $40							; bit#6 = 1 write
 	sta VDPControl
-nop
-nop
 } 
 !macro VdpReadAddress{					; *** set VDP read vram address-pointer to XXAA
 	sta VDPControl
@@ -114,16 +101,17 @@ nop
 *= $0400}
 !zone init						; *** rom start
 	jmp init							; jump to init
-	jmp warm							; jump to basic warm start
-	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, 'BM', '1' = 4k-block 1
+	jmp init
+	!byte "c",$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, '1' = 4k-block 1
 init:							; *** initialize bank regs and start main code ***
 	sei									; disable interrupts
-	lda #$0f							; switch indirect bank to 15
-	sta IndirectBank
 	jmp start							; jump to start
 end:							; *** terminate program and boot ***
-	ldx #$31							; set x to 4. byte to compare for rom check
-	jmp bootcbm2						; continue to check for roms at $2000
+	lda #$cc
+	sta evect							; set warmstart vector to $bbcc = BASIC
+	lda #$bb
+	sta evect+1
+	jmp bootcbm2						; boot with init
 !ifdef ROM{
 *= $1020
 } else {
@@ -132,12 +120,8 @@ end:							; *** terminate program and boot ***
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
 start:							; *** main code starts here ***	
-	lda#$43
-	sta$d000
 	jsr VdpInit
 	jsr VdpOn
-	lda#$44
-	sta$d001
 
 	lda # 0
 	sta sprite_group_min
@@ -172,10 +156,12 @@ start:							; *** main code starts here ***
 	clc
 -	sta sprite_x,x
 	inx
-	sta sprite_x,x
 	inx
+	sta sprite_x,x
+	dex
 	adc # 16
 	sta sprite_x,x
+	inx
 	inx
 	sta sprite_x,x
 	inx
@@ -184,23 +170,10 @@ start:							; *** main code starts here ***
 	bne -
 
 	jsr VdpSpriteGroup
-	lda#$45
-	sta$d002
-
-	ldx #$00			; delay about 5s 
-	ldy #$00
-	lda #$20
-	sta $d003
--	inx
-	bne -
-	iny
-	bne -
-	dec $d003
-	bne -
-;stop:
-;	jmp stop
+stop:
+	jmp stop
 	jsr VdpOff	
-	jmp end								; end program
+;	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
 !zone subroutines
 ; *********************************** ZONE VDP_SUBROUTINES ****************************************
@@ -212,81 +185,63 @@ VdpInit:						; *** initialize VDP ***
 	+VDPWAIT 4
 -	lda VdpInitData,x
 	sta VDPIndirect
-nop
-nop
 	inx
 	cpx # VdpInitDataEnd - VdpInitData
 	bne -
+	+VDPWAIT 2
 	lda # VDPREG18
 	+VdpSetReg 18						; set register 18 V/H display adjust L 7-1,0,f-8 R
 								; * clear 16kB VRAM
+	+VDPWAIT 4
 	lda	#$00
 	tax
 	+VdpWriteAddress					; set VRAM write address to $XXAA = $0000, Bank Reg already $00
 	txa									; VRAM init value =$00
-	ldy #$40							; set counter to $4000 - Y already $00	
--	+VDPWAIT 1							; vdp pause between WR only 5us - works!
+	ldy #$40							; set counter to $4000 - X already $00	
+-	+VDPWAIT 4							; vdp pause between WR only 5us - works!
 	sta VDPRamWrite
-nop
-nop
 	inx
 	bne -
 	dey
 	bne -
 								; * copy color-palette
-	+VdpSetReg  16						; set VDP reg 16 = palette pointer to $00, A, X are already $00
+	+VDPWAIT 2
+	+VdpSetReg 16						; set VDP reg 16 = palette pointer to $00, A, X are already $00
+	+VDPWAIT 4
 -	lda PaletteData,x					; load palette-color to write
 	sta VDPPalette
-nop
-nop
 	inx
 	cpx # PaletteDataEnd - PaletteData
 	bne -
 								; * copy sprite data to sprite pattern table
-	+st16i vdp_pointer, SpriteData
-	+st16i vdp_size, SpriteDataEnd - SpriteData
-	+ldax16i SpritePatternTable			; VRAM address in XXAA
-	jsr VdpCopy16
+	+ldax16i $0000;SpritePatternTable			; VRAM address in XXAA
+	+VdpWriteAddress
+	ldx #$00
+-	+VDPWAIT 2
+	lda SpriteData,x					; load data
+	sta VDPRamWrite
+	inx
+	bne -
+-	+VDPWAIT 2
+	lda SpriteData + $100,x				; load data
+	sta VDPRamWrite
+	inx
+	bne -
 								; * copy sprite color data to sprite color table
-	+st16i vdp_pointer, SpriteColorData
-	+st16i vdp_size, SpriteColorDataEnd - SpriteColorData
-	+ldax16i SpriteColorTable			; VRAM address in XXAA
-	jsr VdpCopy16
+	+ldax16i $2000;SpriteColorTable			; VRAM address in XXAA
+	+VdpWriteAddress
+	ldx #$00
+-	+VDPWAIT 2
+	lda SpriteColorData,x				; load data
+	sta VDPRamWrite
+	inx
+	bne -
 
-+st16i vdp_pointer, SpriteData
-+st16i vdp_size, SpriteDataEnd - SpriteData
-+ldax16i $0000					; VRAM address in XXAA
-jsr VdpCopy16
-
-+ldax16i $0000
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
-
-+ldax16i $2000
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
-
-+ldax16i $3800
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
+-	lda #$80							; move sprite 15-31 out of visible area to x = -32
+	+VDPWAIT 3
+	sta VDPRamWrite
+	inx
+	bne -
 
 	rts
 
@@ -317,23 +272,6 @@ VdpOff:							; *** disable screen ***
 ;	bne -
 ;	rts
 
-VdpCopy16:						; *** copy vdp_size bytes from pointer to VRAM at $XXAA ***
-	+VdpWriteAddress
-	inc vdp_size+1						; add 1 to size-highbyte for first run with X=lowsize
-	ldy #$00
-	ldx vdp_size
--	lda(vdp_pointer),y					; load data
-	sta VDPRamWrite
-	dex
-	bne +
-	dec vdp_size+1
-	beq ++								; reached size?
-+	iny
-	bne -
-	inc vdp_pointer+1
-	bne -							
-++	rts
-
 ;VdpSprite:						 ; *** write sprite attributes from sprite X to VDP
 ;	tax									; safe as index
 ;	asl									; 4 attribute bytes each sprite
@@ -360,16 +298,16 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 	sta VDPControl
 	lda # (>SpriteAttributeTable) | $40	; bit 8-13 attribute table + bit 6 for write VRAM
 	sta VDPControl
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 4-VDPTUNE
 -	lda sprite_y,x
 	sta VDPRamWrite
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 4-VDPTUNE
 	lda sprite_x,x
 	sta VDPRamWrite
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 4-VDPTUNE
 	lda sprite_p,x
 	sta VDPRamWrite	
-	+VDPWAIT 5-VDPTUNE
+	+VDPWAIT 6-VDPTUNE
 	sta VDPRamWrite						; dummy write for unused attribute 4
 	cpx sprite_group_max
 	beq +
@@ -379,13 +317,13 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 ; ****************************************** ZONE DATA ********************************************
 !zone data
 VdpInitData:	; graphics3-mode
-!byte $04,VDPREG1,$0e,$ff,$03,$3C,$03,$10,$08,VDPREG9,$00,$00,$20,$f0,$00
+!byte $04,VDPREG1,$0e,$ff,$03,$3f,$03,$10,$08,VDPREG9,$00,$00,$10,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
 	; reg  1: $02 mode control 2: bit#1 16x16 sprites, bit#3-4 = M2-M1, #6 =1: display enable)
 	; reg  2: $0e name (screen) table base address $3800 ( * $400 )
 	; reg  3: $ff pattern color table base address $2000 ( bit#7=A13 + bit#0-6 = 1)
 	; reg  4: $03 pattern generator table base address $0000 ( bit#2-5=A13-A16 + bit#0+1 = 1)
-	; reg  5: $3c sprite attribute table base address $1e00 (* $80)
+	; reg  5: $3f sprite attribute table base address $1e00 (* $80 - bit#0+1 = 1)
 	; reg  6: $03 sprite pattern (data) generator base address = $1800 (* $800)
 	; reg  7: $10 text/overscan-backdrop color 
 	; reg  8: $08 bit#3 = 1: 64k VRAM chips, bit#1 = 0 sprites enable, bit#5 0=transparent
@@ -396,12 +334,12 @@ VdpInitData:	; graphics3-mode
 	; reg 13: $f0 blink periods ON/OFF - f0 = blinking off
 	; reg 14: $00 VRAM write addresss bit#0-2 = A14-A16
 VdpInitDataEnd:
-; ***** Color Palette - 16 colors, 2 byte/color: RB, 0G each 3bit -> C64 VICII-colors *****
+
 PaletteData:
-	!byte $00,$00,$47,$06,$27,$04,$17,$02	;	0=black/tra	1=blue7		2=blue6		3=blue5
-	!byte $06,$02,$04,$01,$03,$00,$01,$00	;	4=blue4		5=blue3		6=blue2		7=blue1
-	!byte $74,$05,$72,$03,$70,$01,$60,$00	;	8=red7		9=red6		10=red5		11=red4
-	!byte $40,$00,$20,$00,$10,$00,$77,$07	;	12=red3		13=red2		14=red1		15=white
+	!byte $00,$00,$27,$04,$17,$02,$05,$02	;	0=black/tra	1=blue7		2=blue6		3=blue5
+	!byte $05,$01,$04,$01,$03,$00,$02,$00	;	4=blue4		5=blue3		6=blue2		7=blue1
+	!byte $72,$03,$70,$02,$60,$01,$50,$00	;	8=red7		9=red6		10=red5		11=red4
+	!byte $40,$00,$30,$00,$20,$00,$77,$07	;	12=red3		13=red2		14=red1		15=white
 PaletteDataEnd:
 
 SpriteData:
@@ -484,28 +422,21 @@ SpriteData:
 !byte $0f, $0f, $0f, $0f, $0f, $0f, $1f, $3f
 !byte $c0, $c0, $c0, $c0, $c0, $c0, $c0, $c0
 !byte $c0, $c0, $c0, $c0, $c0, $c0, $e0, $f0
-SpriteDataEnd:
 
 SpriteColorData:
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte 15,1,1,2,2,2,3,3,3,3,3,3,4,4,4,4
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
-!byte  4,4,4,4,4,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte 15,1,1,2,2,3,3,3,4,4,4,4,4,4,4,4
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
+!byte  5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7
 !byte 15,8,8,9,9,9,10,10,10,10,10,10,11,11,11,11
 !byte 15,8,8,9,9,9,10,10,10,10,10,10,11,11,11,11
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
 !byte 11,11,11,11,11,12,12,12,12,12,12,13,13,13,14,14
-SpriteColorDataEnd:
-
-!ifdef ROM{
-*= $1800
-!binary "cbm2-6x8.fon"
-}
