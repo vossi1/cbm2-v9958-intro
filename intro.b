@@ -11,7 +11,7 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-DEBUG = 1		; selects DEBUG code
+;DEBUG = 1		; selects DEBUG code
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
 !source "macros_6502.b"
@@ -32,8 +32,6 @@ SpriteColorTable		= SpriteAttributeTable - $200	; always $200 below sprite attri
 !ifndef DUMMYADDRESS{!addr DUMMYADDRESS = $0000}
 !addr vdpcopy16_data	= VdpCopy16CodePointer+1	; 16bit pointer to LDA-address in VdpCopy16
 !addr vdpcopy_data		= VdpCopyCodePointer+1		; 16bit pointer to LDA-address in VdpCopy
-!addr vdpbitmap_data	= VdpBitmapCodePointer+1	; 16bit pointer to LDA-address in VdpBitmap
-!addr vdpbitmap256_data	= VdpBitmap256CodePointer+1	; 16bit pointer to LDA-address in VdpBitmap256
 ; ***************************************** ZERO PAGE *********************************************
 !addr CodeBank			= $00	; *** bank select register	
 !addr IndirectBank		= $01
@@ -98,48 +96,6 @@ WZP = $d0						; *** start zero page word variables
 	txa
 	sta(VDPControl),y
 }
-!macro VdpWriteAddress64{		; *** 64kB-version: set VDP write vram address-pointer to XXAA
-	sta vdp_calc						; safe A
-	txa									; highbyte in A
-	rol									; address bit 14+15 -> bit 0+1
-	rol
-	rol
-	and #$03							; isolate bit 0+1
-	sta(VDPControl),y					; first writes data in A to control port #1
-	lda # 14 | $80						; writes bit 14+15 in register 14 with bit#7 = 1 to Port #1
-	sta(VDPControl),y
-	+VDPWAIT 4-VDPTUNE					; 3. byte 8us later allowed
-	lda vdp_calc
-	sta(VDPControl),y
-	txa
-	and # $3f							; remove VRAM address bit 14+15
-	ora # $40							; bit#6 = 1 write
-	sta(VDPControl),y
-} 
-!macro VdpReadAddress64{	; *** 64kB-version: set VDP read vram address-pointer to XXAA
-	sta vdp_calc						; safe A
-	txa									; highbyte in A
-	rol									; address bit 14+15 -> bit 0+1
-	rol
-	rol
-	and #$03							; isolate bit 0+1
-	sta(VDPControl),y					; first writes data in A to control port #1
-	lda # 14 | $80						; writes bit 14+15 in register 14 with bit#7 = 1 to Port #1
-	sta(VDPControl),y
-	+VDPWAIT 4-VDPTUNE					; 3. byte 8us later allowed
-	lda vdp_calc
-	sta(VDPControl),y
-	txa
-	and # $3f							; remove VRAM address bit 14+15, bit#6 = 0 read
-	sta(VDPControl),y
-}
-!macro VdpSpriteBank{		; *** Switch to bank $0000-$3FFF for fast sprite access
-	ldy #$00
-	lda #$00							; bank 0
-	sta(VDPControl),y					; first writes data in A to control port #1
-	lda # 14 | $80						; writes bit 14+15 in register 14 with bit#7 = 1 to Port #1
-	sta(VDPControl),y
-} 
 ; **************************************** BASIC LOADER *******************************************
 !initmem FILL
 *= $0003
@@ -210,7 +166,6 @@ start:							; *** main code starts here ***
 +
 	jsr VdpOn
 
-	+VdpSpriteBank						; switch to sprite bank for sprite access
 	lda # 0
 	sta sprite_group_min
 	lda # 15
@@ -350,7 +305,7 @@ VdpStatus:						; *** read status register in A - return status in A
 
 VdpCopy:						; *** copy vdp_size bytes from pointer to VRAM at $XXAA ***
 	ldy #$00
-	+VdpWriteAddress64
+	+VdpWriteAddress
 	ldx #$00
 VdpCopyCodePointer:						; +1,+2 = data address in memory
 -	lda DUMMYADDRESS,x					; load data
@@ -362,7 +317,7 @@ VdpCopyCodePointer:						; +1,+2 = data address in memory
 
 VdpCopy16:						; *** copy vdp_size bytes from pointer to VRAM at $XXAA ***
 	ldy #$00
-	+VdpWriteAddress64
+	+VdpWriteAddress
 	inc vdp_size+1						; add 1 to count-highbyte because nessasary dec count+1
 	ldx vdp_size
 VdpCopy16CodePointer:					; +1,+2 = data address in memory
@@ -373,45 +328,6 @@ VdpCopy16CodePointer:					; +1,+2 = data address in memory
 	bne -
 	dec vdp_size+1
 	bne -
-	rts
-
-VdpBitmap:						; *** copy vdp_bitmapdata with vdp_size_x, _y to VRAM at $XXAA ***
-	ldy #$00
-	+stax16 vdp_pointer					; pointer to VRAM position A = x, X = y
---	+ldax16 vdp_pointer
-	+VdpWriteAddress64
-	ldx #$00
-VdpBitmapCodePointer:					; +1,+2 = data address in memory
--	lda DUMMYADDRESS,x					; load data
-	sta(VDPRamWrite),y
-	inx
-	cpx vdp_size_x
-	bne -
-	inc vdp_pointer+1
-	lda vdpbitmap_data
-	clc
-	adc vdp_size_x						; add size x to bitmap data pointer
-	sta vdpbitmap_data
-	bcc +
-	inc vdpbitmap_data+1
-+	dec vdp_size_y
-	bne --								; last Bitmap line reached
-++	rts
-
-VdpBitmap256:					; *** copy fast full with vdp_bitmapdata256 with vpd_size_y to VRAM at $XXAA ***
-	ldy #$00
-	+stax16 vdp_pointer					; pointer to VRAM position A = x, X = y
-	+ldax16 vdp_pointer
-	+VdpWriteAddress64
-	ldx #$00
-VdpBitmap256CodePointer:				; +1,+2 = data address in memory
--	lda DUMMYADDRESS,x					; load data
-	sta(VDPRamWrite),y
-	inx
-	bne -
-	inc vdpbitmap256_data+1
-	dec vdp_size_y
-	bne -								; last Bitmap line reached?
 	rts
 
 VdpText:						; *** copy string vdp_textdata with vdp_color to VRAM at $XXAA ***
@@ -440,7 +356,7 @@ VdpText:						; *** copy string vdp_textdata with vdp_color to VRAM at $XXAA ***
 	sta vdp_pointer2+1
 	ldy #$00
 --	+ldax16 vdp_pointer
-	+VdpWriteAddress64					; Y already $00
+	+VdpWriteAddress					; Y already $00
 	tya
 	ldy vdp_counter
 	ora(vdp_pointer2),y					; load counter. byte of character-data from font 
@@ -580,8 +496,8 @@ VdpInitDataEnd:
 PaletteData:
 	!byte $00,$00,$27,$04,$17,$02,$05,$02	;	0=black/tra	1=blue7		2=blue6		3=blue5
 	!byte $05,$01,$04,$01,$03,$00,$02,$00	;	4=blue4		5=blue3		6=blue2		7=blue1
-	!byte $74,$05,$72,$03,$70,$02,$60,$01	;	8=red7		9=red6		10=red5		11=red4
-	!byte $50,$00,$40,$00,$30,$00,$77,$07	;	12=red3		13=red2		14=red1		15=white
+	!byte $72,$03,$70,$02,$60,$01,$50,$00	;	8=red7		9=red6		10=red5		11=red4
+	!byte $40,$00,$30,$00,$20,$00,$77,$07	;	12=red3		13=red2		14=red1		15=white
 PaletteDataEnd:
 
 SpriteData:
