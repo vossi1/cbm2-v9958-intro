@@ -135,6 +135,11 @@ start:							; *** main code starts here ***
 	lda#$43
 	sta$d000
 	jsr VdpInit
+nop
+nop
+nop
+nop
+nop
 	jsr VdpOn
 	lda#$44
 	sta$d001
@@ -214,6 +219,8 @@ VdpInit:						; *** initialize VDP ***
 	sta VDPIndirect
 nop
 nop
+nop
+nop
 	inx
 	cpx # VdpInitDataEnd - VdpInitData
 	bne -
@@ -222,9 +229,13 @@ nop
 								; * clear 16kB VRAM
 	lda	#$00
 	tax
+nop
+nop
+nop
 	+VdpWriteAddress					; set VRAM write address to $XXAA = $0000, Bank Reg already $00
 	txa									; VRAM init value =$00
-	ldy #$40							; set counter to $4000 - Y already $00	
+	ldy #$40							; set counter to $4000 - Y already $00
+nop
 -	+VDPWAIT 1							; vdp pause between WR only 5us - works!
 	sta VDPRamWrite
 nop
@@ -234,7 +245,8 @@ nop
 	dey
 	bne -
 								; * copy color-palette
-	+VdpSetReg  16						; set VDP reg 16 = palette pointer to $00, A, X are already $00
+nop
+nop
 -	lda PaletteData,x					; load palette-color to write
 	sta VDPPalette
 nop
