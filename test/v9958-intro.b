@@ -370,18 +370,18 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 	asl									; 4 attribute bytes each sprite
 	asl
 	sta VDPControl
-	lda # (>SpriteAttributeTable) | $40	; bit 8-13 attribute table + bit 6 for write VRAM
+	lda # ((>SpriteAttributeTable)&$3f)|$40	; bit 8-13 attribute table + bit 6 for write VRAM
 	sta VDPControl
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 5-VDPTUNE
 -	lda sprite_y,x
 	sta VDPRamWrite
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 5-VDPTUNE
 	lda sprite_x,x
 	sta VDPRamWrite
-	+VDPWAIT 3-VDPTUNE
+	+VDPWAIT 5-VDPTUNE
 	lda sprite_p,x
 	sta VDPRamWrite	
-	+VDPWAIT 5-VDPTUNE
+	+VDPWAIT 7-VDPTUNE
 	sta VDPRamWrite						; dummy write for unused attribute 4
 	cpx sprite_group_max
 	beq +
@@ -391,7 +391,7 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 ; ****************************************** ZONE DATA ********************************************
 !zone data
 VdpInitData:	; graphics3-mode
-!byte $04,VDPREG1,$0e,$ff,$03,$3C,$03,$10,$08,VDPREG9,$00,$00,$20,$f0,$00
+!byte $04,VDPREG1,$0e,$ff,$03,$3C,$03,$1e,$08,VDPREG9,$00,$00,$20,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
 	; reg  1: $02 mode control 2: bit#1 16x16 sprites, bit#3-4 = M2-M1, #6 =1: display enable)
 	; reg  2: $0e name (screen) table base address $3800 ( * $400 )
