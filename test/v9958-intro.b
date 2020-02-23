@@ -202,8 +202,8 @@ nop
 	bne -
 	dec $d003
 	bne -
-;stop:
-;	jmp stop
+stop:
+	jmp stop
 	jsr VdpOff	
 	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
@@ -244,6 +244,10 @@ nop
 	bne -
 	dey
 	bne -
+	+VDPWAIT 2	
+	lda # 0
+	+VdpSetReg 14						; set VRAM bank register to 0
+
 								; * copy color-palette
 nop
 nop
