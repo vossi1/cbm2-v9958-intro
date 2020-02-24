@@ -83,23 +83,15 @@ WZP = $a0						; *** start zero page word variables
 }
 !macro VdpSetReg .r{			; *** set VDP Register
 	sta VDPControl					; first writes data in A to control port #1
-nop
-nop
 	lda # .r | $80						; writes register no. with bit#7 = 1 to Port #1
 	sta VDPControl
-nop
-nop
 }
 ; ********************* Y register must be $00 for all Vdp-Address subroutines ********************
 !macro VdpWriteAddress{			; *** set VDP write vram address-pointer to XXAA
 	sta VDPControl
-nop
-nop
 	txa
 	ora # $40							; bit#6 = 1 write
 	sta VDPControl
-nop
-nop
 } 
 !macro VdpReadAddress{					; *** set VDP read vram address-pointer to XXAA
 	sta VDPControl
@@ -132,18 +124,8 @@ end:							; *** terminate program and boot ***
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
 start:							; *** main code starts here ***	
-	lda#$43
-	sta$d000
 	jsr VdpInit
-nop
-nop
-nop
-nop
-nop
 	jsr VdpOn
-	lda#$44
-	sta$d001
-
 	lda # 0
 	sta sprite_group_min
 	lda # 15
@@ -189,21 +171,17 @@ nop
 	bne -
 
 	jsr VdpSpriteGroup
-	lda#$45
-	sta$d002
 
 	ldx #$00			; delay about 5s 
 	ldy #$00
 	lda #$20
-	sta $d003
+	sta $d000
 -	inx
 	bne -
 	iny
 	bne -
-	dec $d003
+	dec $d000
 	bne -
-stop:
-	jmp stop
 	jsr VdpOff	
 	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
@@ -217,10 +195,6 @@ VdpInit:						; *** initialize VDP ***
 	+VDPWAIT 4
 -	lda VdpInitData,x
 	sta VDPIndirect
-nop
-nop
-nop
-nop
 	inx
 	cpx # VdpInitDataEnd - VdpInitData
 	bne -
@@ -229,17 +203,11 @@ nop
 								; * clear 16kB VRAM
 	lda	#$00
 	tax
-nop
-nop
-nop
 	+VdpWriteAddress					; set VRAM write address to $XXAA = $0000, Bank Reg already $00
 	txa									; VRAM init value =$00
 	ldy #$40							; set counter to $4000 - Y already $00
-nop
 -	+VDPWAIT 1							; vdp pause between WR only 5us - works!
 	sta VDPRamWrite
-nop
-nop
 	inx
 	bne -
 	dey
@@ -247,14 +215,9 @@ nop
 	+VDPWAIT 2	
 	lda # 0
 	+VdpSetReg 14						; set VRAM bank register to 0
-
 								; * copy color-palette
-nop
-nop
 -	lda PaletteData,x					; load palette-color to write
 	sta VDPPalette
-nop
-nop
 	inx
 	cpx # PaletteDataEnd - PaletteData
 	bne -
@@ -269,41 +232,10 @@ nop
 	+ldax16i SpriteColorTable			; VRAM address in XXAA
 	jsr VdpCopy16
 
-+st16i vdp_pointer, SpriteData
-+st16i vdp_size, SpriteDataEnd - SpriteData
-+ldax16i $0000					; VRAM address in XXAA
-jsr VdpCopy16
-
-+ldax16i $0000
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
-
-+ldax16i $2000
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
-
-+ldax16i $3800
-+VdpWriteAddress
-ldx#$00
--
-txa
-+VDPWAIT 3
-sta VDPRamWrite
-inx
-bne -
-
+	+st16i vdp_pointer, SpriteData
+	+st16i vdp_size, SpriteDataEnd - SpriteData
+	+ldax16i $0000					; VRAM address in XXAA
+	jsr VdpCopy16
 	rts
 
 VdpOn:							; *** enable screen ***
@@ -374,7 +306,7 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 	asl									; 4 attribute bytes each sprite
 	asl
 	sta VDPControl
-	lda # ((>SpriteAttributeTable)&$3f)|$40	; bit 8-13 attribute table + bit 6 for write VRAM
+	lda # (>SpriteAttributeTable) | $40	; bit 8-13 attribute table + bit 6 for write VRAM
 	sta VDPControl
 	+VDPWAIT 5-VDPTUNE
 -	lda sprite_y,x
@@ -395,7 +327,7 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 ; ****************************************** ZONE DATA ********************************************
 !zone data
 VdpInitData:	; graphics3-mode
-!byte $04,VDPREG1,$0e,$ff,$03,$3C,$03,$1e,$08,VDPREG9,$00,$00,$20,$f0,$00
+!byte $04,VDPREG1,$0e,$ff,$03,$3C,$03,$10,$08,VDPREG9,$00,$00,$20,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
 	; reg  1: $02 mode control 2: bit#1 16x16 sprites, bit#3-4 = M2-M1, #6 =1: display enable)
 	; reg  2: $0e name (screen) table base address $3800 ( * $400 )
