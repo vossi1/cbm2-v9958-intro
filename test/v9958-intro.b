@@ -232,10 +232,6 @@ VdpInit:						; *** initialize VDP ***
 	+ldax16i SpriteColorTable			; VRAM address in XXAA
 	jsr VdpCopy16
 
-	+st16i vdp_pointer, SpriteData
-	+st16i vdp_size, SpriteDataEnd - SpriteData
-	+ldax16i $0000					; VRAM address in XXAA
-	jsr VdpCopy16
 	rts
 
 VdpOn:							; *** enable screen ***
