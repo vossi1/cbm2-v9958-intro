@@ -11,9 +11,12 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-;DEBUG = 1		; selects DEBUG code
+ROM = 1		; assemble extension rom at $1000
+ROMEND = $0800	; fill to reach exactly this size
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
+!ifdef 	ROM{!to "intro.bin", plain
+} else{ 	!to "intro.prg", cbm }
 !source "macros_6502.b"
 ; ***************************************** CONSTANTS *********************************************
 FILL					= $00		; fills free memory areas with $00
@@ -24,17 +27,56 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 	}else {VDPREG9		= $80|PAL*2}
 VDPTUNE					= 0			; tune vdp waits in 1us steps
 ; ***************************************** ADDRESSES *********************************************
+!addr warm				= $8003		; basic warm start
+!addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
+!addr evect				= $03f8	; RESERVED KERNAL BOOT warmstart vector 2 bytes
+; $96+$97 also RESERVED KERNAl BOOT rom check counter
 VDPAddress				= $d900		; Port#0 RamWrite, #1 Control, #2 Palette, #4 RamRead, #5 Status
 PatternTable			= $0000
 SpritePatternTable		= $1800
 SpriteAttributeTable	= $1e00
 SpriteColorTable		= SpriteAttributeTable - $200	; always $200 below sprite attribute table
 !ifndef DUMMYADDRESS{!addr DUMMYADDRESS = $0000}
-!addr vdpcopy16_data	= VdpCopy16CodePointer+1	; 16bit pointer to LDA-address in VdpCopy16
-!addr vdpcopy_data		= VdpCopyCodePointer+1		; 16bit pointer to LDA-address in VdpCopy
+!ifdef ROM{
+!addr VDPRamWrite		= VDPAddress			; VDP ports
+!addr VDPControl		= VDPAddress+1
+!addr VDPPalette		= VDPAddress+2
+!addr VDPIndirect		= VDPAddress+3
+!addr VDPRamRead		= VDPAddress+4
+!addr VDPStatus			= VDPAddress+5
+}
 ; ***************************************** ZERO PAGE *********************************************
 !addr CodeBank			= $00	; *** bank select register	
 !addr IndirectBank		= $01
+
+!ifdef ROM{
+VZP = $10						; *** start zero page VDP parameter
+!addr vdp_counter		= VZP			; 8bit universal counter
+!addr vdp_counter2		= VZP+$01		; 8bit universal counter
+!addr vdp_calc			= VZP+$02		; 8bit universal calc memory
+!addr vdp_bgcolor		= VZP+$03		; 8bit background color
+!addr vdp_color			= VZP+$04		; 8bit color
+!addr vdp_pointer		= VZP+$05		; 16bit universal pointer
+!addr vdp_pointer2		= VZP+$07		; 16bit universal pointer
+!addr vdp_data			= VZP+$09		; 16bit pointer to source data (bitmap or string)
+!addr vdp_size			= VZP+$0b		; 16bit size for VdpCopy + VdpCopy16
+!addr vdp_size_x		= VZP+$0d		; 16bit x size for VDP subroutines
+!addr vdp_size_y		= VZP+$0f		; 16bit y size for VDP sobroutines
+!addr sprite_group_min	= VZP+$11		; sprite group start
+!addr sprite_group_max	= VZP+$12		; sprite group end
+SZP = $30
+!addr sprite_x			= SZP			; 32 sprite x positions
+!addr sprite_y			= SZP+$20		; 32 sprite y positions
+!addr sprite_p			= SZP+$40		; 32 sprite pattern
+BZP = $90						; *** start zero page byte-variables
+!addr vdpid				= BZP			; VDP ID
+!addr counter			= BZP+$01		; 8bit universal counter
+!addr eal				= $96		; RESERVED Kernal 
+!addr eah 				= $97		; RESERVED Kernal
+WZP = $d0						; *** start zero page word variables	
+!addr counter16			= WZP			; 16bit universal counter
+!addr pointer			= WZP+$02		; universal pointer
+} else{
 ZP = $33						; *** start zero page pointers
 !addr VDPRamWrite		= ZP			; VDP pointer
 !addr VDPControl		= ZP+$02
@@ -42,7 +84,6 @@ ZP = $33						; *** start zero page pointers
 !addr VDPIndirect		= ZP+$06
 !addr VDPRamRead		= ZP+$08
 !addr VDPStatus			= ZP+$0a
-										; IO pointers
 VZP = $40						; *** start zero page VDP parameter
 !addr vdp_counter		= VZP			; 8bit universal counter
 !addr vdp_counter2		= VZP+$01		; 8bit universal counter
@@ -67,17 +108,32 @@ BZP = $c0						; *** start zero page byte-variables
 WZP = $d0						; *** start zero page word variables	
 !addr counter16			= WZP			; 16bit universal counter
 !addr pointer			= WZP+$02		; universal pointer
-;						= $f8-$fc		; reserved console source
-!addr debug_fd			= $fd;-$ff		; 3 byte debug register for A, X, Y			
-; ******************************************* MACROS **********************************************
-!ifdef DEBUG{
-!macro DEBUG{ jsr ConsoleDebug }
 }
+; ******************************************* MACROS **********************************************
 !macro VDPWAIT .t{			; *** t x 1 us wait for VRAM write
 	!do while .t > 0{
 		nop								; each nop needs 1 us @ 2MHz
 		!set .t = .t -1}
 }
+
+!ifdef ROM{
+!macro VdpSetReg .r{			; *** set VDP Register
+	sta VDPControl					; first writes data in A to control port #1
+	lda # .r | $80						; writes register no. with bit#7 = 1 to Port #1
+	sta VDPControl
+}
+!macro VdpWriteAddress{			; *** set VDP write vram address-pointer to XXAA
+	sta VDPControl
+	txa
+	ora # $40							; bit#6 = 1 write
+	sta VDPControl
+} 
+!macro VdpReadAddress{					; *** set VDP read vram address-pointer to XXAA
+	sta VDPControl
+	txa
+	sta VDPControl
+}
+} else {
 !macro VdpSetReg .r{			; *** set VDP Register
 	ldy #$00
 	sta(VDPControl),y					; first writes data in A to control port #1
@@ -96,9 +152,11 @@ WZP = $d0						; *** start zero page word variables
 	txa
 	sta(VDPControl),y
 }
-; **************************************** BASIC LOADER *******************************************
+}
 !initmem FILL
-*= $0003
+; **************************************** BASIC LOADER *******************************************
+!ifndef ROM{
+	*= $0003
 	!byte $2f,$00,$0a,$00,$81,$49,$b2,$31,$30,$32,$34,$a4,$31,$30,$33,$39
 	!byte $3a,$dc,$31,$3a,$41,$b2,$c2,$28,$49,$29,$3a,$dc,$31,$35,$3a,$97
 	!byte $49,$2c,$41,$3a,$82,$3a,$9e,$31,$30,$32,$34,$00,$00,$00,$00,$00
@@ -108,13 +166,31 @@ WZP = $d0						; *** start zero page word variables
 	; $0200 - $03FF	start-code
 	; $0400 - $040F	init-code -> mirror in bank 15
 	; $0410 - 		code / data
+}
 ; ***************************************** ZONE INIT *********************************************
 !zone init
+!ifdef ROM{
+*= $1000
+	jmp init							; jump to init
+	jmp warm							; jump to basic warm start
+	!byte $43,$c2,$cd,"1"				; cbm-rom ident-bytes 'c'= no init, 'BM', '1' = 4k-block 1
+init:							; *** initialize bank regs and start main code ***
+	sei									; disable interrupts
+	lda #$0f							; switch indirect bank to 15
+	sta IndirectBank
+	jmp start							; jump to start
+end:							; *** terminate program and boot ***
+	ldx #$31							; set x to 4. byte to compare for rom check
+	jmp bootcbm2						; continue to check for roms at $2000
+*= $1020
+} else {
 *= $0400
 init:							; *** initialize bank regs and start main code ***
 	sei									; disable interupts
 	lda #$01							; switch to bank 1
 	sta CodeBank
+	lda #$0f							; set bank indirect reg to bank 15
+	sta IndirectBank
 	jmp start
 end:							; *** terminate program and jump back to basic ***
 	lda #$0f							; switch completely back to bank 15
@@ -122,48 +198,15 @@ end:							; *** terminate program and jump back to basic ***
 	sta IndirectBank
 	cli									; enable interupts
 	rts									; back to basic
+*= $0420
+}
 ; ***************************************** ZONE MAIN *********************************************
 !zone main
-*= $0200
 start:							; *** main code starts here ***	
-	lda #$0f							; set bank indirect reg to bank 15
-	sta IndirectBank
-	jsr ConsoleClear					; start console
+!ifndef ROM{
 	jsr InitZeroPage					; initialize all zero page pointers
-	+ldax16i message_start
-	jsr ConsoleText
-	+ldax16i message_copyright
-	jsr ConsoleText
-	lda # 1								; read status register 1
-	jsr VdpStatus
-	lsr
-	and #$1f							; isolate VDP identification bit #1-5
-	sta vdpid
-	bne +
-	+ldax16i message_v9938				; ID = 0 -> V9938
-	jsr ConsoleText
-	jmp ++
-+	cmp #$02
-	bne +
-	+ldax16i message_v9958				; ID = 1 -> V9958
-	jsr ConsoleText
-	jmp ++
-+	+ldax16i message_novdp				; no vdp detected
-	jsr ConsoleText
-++	+ldax16i message_clearvram
-	jsr ConsoleText
-	
+}
 	jsr VdpInit
-	lda vdpid							; ready message only with id ID 0 or 2 
-	beq +
-	cmp #$02
-	bne ++
-+	+ldax16i message_vdpready
-	jsr ConsoleText
-	jmp +
-++	+ldax16i message_vdpunknown
-	jsr ConsoleText
-+
 	jsr VdpOn
 
 	lda # 0
@@ -214,6 +257,17 @@ start:							; *** main code starts here ***
 
 	jsr VdpSpriteGroup
 
+	ldx #$00			; delay $20 = about 5s 
+	ldy #$00
+	lda #$20
+	sta $d000
+-	inx
+	bne -
+	iny
+	bne -
+	dec $d000
+	bne -
+	jsr VdpOff	
 	jmp end								; end program
 ; ************************************* ZONE SUBROUTINES ******************************************
 !zone subroutines
@@ -239,8 +293,143 @@ InitZeroPage:					; *** init zero page addresses
 	stx VDPStatus
 	rts
 ; *********************************** ZONE VDP_SUBROUTINES ****************************************
-*= $0410
 !zone vdp_subroutines
+!ifdef ROM{
+VdpInit:						; *** initialize VDP ***
+	lda #$00
+	tax
+	+VdpSetReg 17						; write VDP regs fast indirect
+	+VDPWAIT 4
+-	lda VdpInitData,x
+	sta VDPIndirect
+	inx
+	cpx # VdpInitDataEnd - VdpInitData
+	bne -
+	lda # VDPREG18
+	+VdpSetReg 18						; set register 18 V/H display adjust L 7-1,0,f-8 R
+								; * clear 16kB VRAM
+	lda	#$00
+	tax
+	+VdpWriteAddress					; set VRAM write address to $XXAA = $0000, Bank Reg already $00
+	txa									; VRAM init value =$00
+	ldy #$40							; set counter to $4000 - Y already $00
+-	+VDPWAIT 1							; vdp pause between WR only 5us - works!
+	sta VDPRamWrite
+	inx
+	bne -
+	dey
+	bne -
+	+VDPWAIT 2	
+	lda # 0
+	+VdpSetReg 14						; set VRAM bank register to 0
+								; * copy color-palette
+-	lda PaletteData,x					; load palette-color to write
+	sta VDPPalette
+	inx
+	cpx # PaletteDataEnd - PaletteData
+	bne -
+								; * copy sprite data to sprite pattern table
+	+st16i vdp_pointer, SpriteData
+	+st16i vdp_size, SpriteDataEnd - SpriteData
+	+ldax16i SpritePatternTable			; VRAM address in XXAA
+	jsr VdpCopy16
+								; * copy sprite color data to sprite color table
+	+st16i vdp_pointer, SpriteColorData
+	+st16i vdp_size, SpriteColorDataEnd - SpriteColorData
+	+ldax16i SpriteColorTable			; VRAM address in XXAA
+	jsr VdpCopy16
+
+	rts
+
+VdpOn:							; *** enable screen ***
+	lda # VDPREG1 | $40					; set mode reg 1 (M1+M2), bit#6 = 1 enables screen
+	+VdpSetReg 1
+	rts
+
+VdpOff:							; *** disable screen ***
+	lda # VDPREG1 & $bf					; set mode reg 1 (M1+M2), bit#6 = 1 enables screen
+	+VdpSetReg 1
+	rts
+
+;VdpStatus:						; *** read status register in A - return status in A
+;	lda # 1
+;	+VdpSetReg 15						; reg 15 = 1 initiates read status-reg 1
+;	+VDPWAIT 6						; wait for DVP
+;	lda VDPStatus 					; read status
+;	rts
+
+;VdpCopy:						; *** copy vdp_size bytes from pointer to VRAM at $XXAA ***
+;	+VdpWriteAddress
+;	ldy #$00
+;-	lda(vdp_pointer),y					; load data
+;	sta VDPRamWrite
+;	iny
+;	cpy vdp_size
+;	bne -
+;	rts
+
+VdpCopy16:						; *** copy vdp_size bytes from pointer to VRAM at $XXAA ***
+	+VdpWriteAddress
+	inc vdp_size+1						; add 1 to size-highbyte for first run with X=lowsize
+	ldy #$00
+	ldx vdp_size
+-	lda(vdp_pointer),y					; load data
+	sta VDPRamWrite
+	dex
+	bne +
+	dec vdp_size+1
+	beq ++								; reached size?
++	iny
+	bne -
+	inc vdp_pointer+1
+	bne -							
+++	rts
+
+;VdpSprite:						 ; *** write sprite attributes from sprite X to VDP
+;	tax									; safe as index
+;	asl									; 4 attribute bytes each sprite
+;	asl
+;	sta VDPControl
+;	lda # (>SpriteAttributeTable) | $40	; bit 8-13 attribute table + bit 6 for write VRAM
+;	sta VDPControl
+;	+VDPWAIT 3-VDPTUNE
+;	lda sprite_y,x
+;	sta VDPRamWrite
+;	+VDPWAIT 3-VDPTUNE
+;	lda sprite_x,x
+;	sta VDPRamWrite
+;	+VDPWAIT 3-VDPTUNE
+;	lda sprite_p,x
+;	sta VDPRamWrite
+;	rts
+
+VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
+	lda sprite_group_min
+	tax									; safe as index
+	asl									; 4 attribute bytes each sprite
+	asl
+	sta VDPControl
+	lda # (>SpriteAttributeTable) | $40	; bit 8-13 attribute table + bit 6 for write VRAM
+	sta VDPControl
+	+VDPWAIT 5-VDPTUNE
+-	lda sprite_y,x
+	sta VDPRamWrite
+	+VDPWAIT 5-VDPTUNE
+	lda sprite_x,x
+	sta VDPRamWrite
+	+VDPWAIT 5-VDPTUNE
+	lda sprite_p,x
+	sta VDPRamWrite	
+	+VDPWAIT 7-VDPTUNE
+	sta VDPRamWrite						; dummy write for unused attribute 4
+	cpx sprite_group_max
+	beq +
+	inx
+	bne -
++	rts
+} else{
+!addr vdpcopy16_data	= VdpCopy16CodePointer+1	; 16bit pointer to LDA-address in VdpCopy16
+!addr vdpcopy_data		= VdpCopyCodePointer+1		; 16bit pointer to LDA-address in VdpCopy
 VdpInit:						; *** initialize VDP ***
 	lda #$00
 	tax
@@ -428,52 +617,7 @@ VdpSpriteGroup:					 ; *** write sprite attributes from sprite X to VDP
 	inx
 	bne -
 +	rts
-
-; ***************************************** ZONE DEBUG ********************************************
-!zone debug_subroutine
-!ifdef DEBUG{
-ConsoleDebug:							; optional debug code prints A, X, Y
-	php
-	sta debug_fd
-	stx debug_fd+1
-	sty debug_fd+2
-	+ldax16i string_debug_axy
-	jsr ConsoleText
-	lda debug_fd
-	jsr ConsoleByte
-	+ldax16i string_space
-	jsr ConsoleText
-	lda debug_fd+1
-	jsr ConsoleByte
-	+ldax16i string_space
-	jsr ConsoleText
-	lda debug_fd+2
-	jsr ConsoleByte
-	+ldax16i string_cr
-	jsr ConsoleText
-	lda debug_fd
-	ldx debug_fd+1
-	ldy debug_fd+2
-	plp
-	rts
 }
-; ********************************** ZONE CONSOLE_SUBROUTINES *************************************
-!zone console_subroutines
-!source "console.b"
-; ****************************************** ZONE DATA ********************************************
-!zone data
-message_start !scr "Commodore-CBM2 with V9958 Hires-Color-Card!", C_CR, C_NULL
-message_copyright !scr "Design (c) Vossi 01/2019 in Hamburg/Germany", C_CR, C_CR, C_NULL
-message_clearvram !scr "Initializing VDP and clearing VRAM... ", C_CR, C_NULL
-message_memory !scr "000 kB graphics memory detected", C_CR, C_NULL
-message_nomemory !scr "No graphics memory detected!", C_CR, C_NULL
-message_v9938 !scr "V9938 detected", C_CR, C_NULL
-message_v9958 !scr "V9958 detected", C_CR, C_NULL
-message_novdp !scr "No VDP detected! -> trying to initialize:", C_CR, C_NULL
-message_vdpready !scr "VDP ready.", C_CR, C_NULL
-message_vdpunknown !scr "VDP ?", C_CR, C_NULL
-vdp_message !scr  "v9958: 32 sprites in 16 colors", V_NULL
-
 VdpInitData:	; graphics3-mode
 !byte $04,VDPREG1,$0e,$ff,$03,$3f,$03,$10,$08,VDPREG9,$00,$00,$10,$f0,$00
 	; reg  0: $04 mode control 1: text mode 2 (bit#1-3 = M3 - M5)
@@ -617,9 +761,9 @@ SpriteColorData:
 !byte $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
 SpriteColorDataEnd:
 
-!align $ff,$fe 	; align bitmaps to page border -2 (data at border) for fast indexed access!
-BitmapData:
-;	!binary "za.rgb"
-!align $ff,$00 	; align to page border for fast indexed access!
 FontData:
-;	!binary "deadtest.fon"
+
+!ifdef ROM{
+*= $1800
+!binary "cbm2-6x8.fon"
+}
