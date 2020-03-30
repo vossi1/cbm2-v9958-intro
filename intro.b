@@ -11,7 +11,7 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-;ROM = 1		; assemble extension rom at $1000
+ROM = 1		; assemble extension rom at $1000
 ROMEND = $0800	; fill to reach exactly this size
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
@@ -27,6 +27,7 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 	}else {VDPREG9		= $80|PAL*2}
 VDPTUNE					= 0			; tune vdp waits in 1us steps
 DELAY					= 8			; movement delay
+STATIC					= 12		; static delay
 ; ***************************************** ADDRESSES *********************************************
 !addr warm				= $8003		; basic warm start
 !addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
@@ -266,8 +267,10 @@ start:							; *** main code starts here ***
 	adc # 16
 	sta sprite_y+2
 	sta sprite_y+3
+	pha
 	jsr VdpSpriteGroup
-		
+	pla
+
 	ldy # DELAY							; delay				
 -	inx
 	bne -
@@ -275,7 +278,7 @@ start:							; *** main code starts here ***
 	bne -
 
 	sec									; next step up
-	sbc # 15
+	sbc # 17
 	cmp # 89							; reached final y position ?
 	bne --
 
@@ -286,7 +289,9 @@ start:							; *** main code starts here ***
 	adc # 16
 	sta sprite_y+6
 	sta sprite_y+7
+	pha
 	jsr VdpSpriteGroup
+	pla
 		
 	ldy # DELAY							; delay				
 -	inx
@@ -295,7 +300,7 @@ start:							; *** main code starts here ***
 	bne -
 
 	sec									; next step up
-	sbc # 15
+	sbc # 17
 	cmp # 89							; reached final y position ?
 	bne --
 
@@ -306,7 +311,9 @@ start:							; *** main code starts here ***
 	adc # 16
 	sta sprite_y+10
 	sta sprite_y+11
+	pha
 	jsr VdpSpriteGroup
+	pla
 		
 	ldy # DELAY							; delay				
 -	inx
@@ -315,7 +322,7 @@ start:							; *** main code starts here ***
 	bne -
 
 	sec									; next step up
-	sbc # 15
+	sbc # 17
 	cmp # 89							; reached final y position ?
 	bne --
 
@@ -326,7 +333,9 @@ start:							; *** main code starts here ***
 	adc # 16
 	sta sprite_y+14
 	sta sprite_y+15
+	pha
 	jsr VdpSpriteGroup
+	pla
 		
 	ldy # DELAY							; delay				
 -	inx
@@ -335,19 +344,17 @@ start:							; *** main code starts here ***
 	bne -
 
 	sec									; next step up
-	sbc # 15
+	sbc # 17
 	cmp # 89							; reached final y position ?
 	bne --
 
-	ldx #$00							; delay $20 = about 5s 
-	ldy #$00
-	lda #$80
-	sta $d000
+	lda # STATIC						; delay static
 -	inx
 	bne -
 	iny
 	bne -
-	dec $d000
+	sec
+	sbc # 1
 	bne -
 	jsr VdpOff	
 	jmp end								; end program
