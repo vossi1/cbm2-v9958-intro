@@ -11,7 +11,7 @@
 ; pass parameters to subroutine: AA = lowbyte, XX = highbyte / return AA or XXAA 
 
 ; switches
-ROM = 1		; assemble extension rom at $1000
+;ROM = 1		; assemble extension rom at $1000
 ROMEND = $0800	; fill to reach exactly this size
 PAL = 0			; PAL=1, NTSC=0		selects V9938/58 PAL RGB-output, NTSC has a higher picture
 LINES = 212		; lines = 192 / 212
@@ -26,6 +26,7 @@ VDPREG18				= $0d		; VDP reg 18 value (V/H screen adjust, $0d = Sony PVM 9")
 !if LINES=192 {VDPREG9	= $00|PAL*2	; VDP reg 9 value ($00 = NTSC, $02 = PAL)
 	}else {VDPREG9		= $80|PAL*2}
 VDPTUNE					= 0			; tune vdp waits in 1us steps
+DELAY					= 8			; movement delay
 ; ***************************************** ADDRESSES *********************************************
 !addr warm				= $8003		; basic warm start
 !addr bootcbm2			= $f9b7		; continue cbm2 boot with rom check at $2000 
@@ -214,7 +215,7 @@ start:							; *** main code starts here ***
 	lda # 15
 	sta sprite_group_max
 
-	ldx # 0
+	ldx # 0								; assign sprite patterns
 	txa
 	clc
 -	sta sprite_p,x
@@ -223,13 +224,13 @@ start:							; *** main code starts here ***
 	cpx # 16
 	bne -
 
-	ldx # 0
--	lda # 92
+	ldx # 0								; store sprite y start positions
+-	lda # 212
 	sta sprite_y,x
 	inx
 	sta sprite_y,x
 	inx
-	lda # 92+16	
+	lda # 212+16	
 	sta sprite_y,x
 	inx
 	sta sprite_y,x
@@ -237,7 +238,7 @@ start:							; *** main code starts here ***
 	cpx # 16
 	bne -
 
-	ldx # 0
+	ldx # 0								; store sprite x positions
 	lda # 52
 	clc
 -	sta sprite_x,x
@@ -257,9 +258,90 @@ start:							; *** main code starts here ***
 
 	jsr VdpSpriteGroup
 
-	ldx #$00			; delay $20 = about 5s 
+	ldx # 0
+	lda # 212							; move forst letter up
+--	sta sprite_y+0
+	sta sprite_y+1
+	clc
+	adc # 16
+	sta sprite_y+2
+	sta sprite_y+3
+	jsr VdpSpriteGroup
+		
+	ldy # DELAY							; delay				
+-	inx
+	bne -
+	dey
+	bne -
+
+	sec									; next step up
+	sbc # 15
+	cmp # 89							; reached final y position ?
+	bne --
+
+	lda # 212							; move forst letter up
+--	sta sprite_y+4
+	sta sprite_y+5
+	clc
+	adc # 16
+	sta sprite_y+6
+	sta sprite_y+7
+	jsr VdpSpriteGroup
+		
+	ldy # DELAY							; delay				
+-	inx
+	bne -
+	dey
+	bne -
+
+	sec									; next step up
+	sbc # 15
+	cmp # 89							; reached final y position ?
+	bne --
+
+	lda # 212							; move forst letter up
+--	sta sprite_y+8
+	sta sprite_y+9
+	clc
+	adc # 16
+	sta sprite_y+10
+	sta sprite_y+11
+	jsr VdpSpriteGroup
+		
+	ldy # DELAY							; delay				
+-	inx
+	bne -
+	dey
+	bne -
+
+	sec									; next step up
+	sbc # 15
+	cmp # 89							; reached final y position ?
+	bne --
+
+	lda # 212							; move forst letter up
+--	sta sprite_y+12
+	sta sprite_y+13
+	clc
+	adc # 16
+	sta sprite_y+14
+	sta sprite_y+15
+	jsr VdpSpriteGroup
+		
+	ldy # DELAY							; delay				
+-	inx
+	bne -
+	dey
+	bne -
+
+	sec									; next step up
+	sbc # 15
+	cmp # 89							; reached final y position ?
+	bne --
+
+	ldx #$00							; delay $20 = about 5s 
 	ldy #$00
-	lda #$20
+	lda #$80
 	sta $d000
 -	inx
 	bne -
